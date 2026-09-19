@@ -1,6 +1,6 @@
 {
   "name": "@aiko-dsh-plugins/dsh-ragflow",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Scoped RAGFlow knowledge retrieval and citations for DeepSeek Harness.",
   "keywords": ["dsh", "deepseek-harness", "ragflow", "rag", "mcp", "knowledge-base"],
   "license": "MIT",

@@ -29,6 +29,19 @@ test('the adapter always sends the selected nonempty dataset_ids and ignores inj
   assert.deepEqual(readSources(tool.output.render({}, result)), result.sources)
 })
 
+test('model-facing source labels hide provider brands', async () => {
+  const port = {
+    listDatasets: async () => [{ id: 'a', name: 'RAGFlow Product', description: '' }],
+    retrieve: async () => ({ chunks: [{ ...hit(), document_name: 'ragflow-install-verification.txt' }] }),
+  }
+  const tool = createScopedTool(port, resolveConfig({ maxResults: 8 }), async () => ({ mode: 'selected', ids: ['a'] }), value => value.agent)
+  const result = await tool.execute({ question: 'install?' }, exec)
+  assert.equal(result.results[0].dataset, 'Knowledge Product')
+  assert.equal(result.results[0].file, 'Knowledge-install-verification.txt')
+  const visibleText = tool.output.render({}, result)[0].text.replace(/\]\([^)]+\)/g, ']')
+  assert.doesNotMatch(visibleText, /RAGFlow|WeKnora/i)
+})
+
 test('foreign or unverifiable hits are never returned as evidence', async () => {
   for (const chunk of [hit('b'), { ...hit(), dataset_id: undefined }, { ...hit(), document_id: undefined }, { ...hit(), id: undefined }]) {
     const { tool } = setup(undefined, { chunks: [hit(), chunk] })

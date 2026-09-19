@@ -8,10 +8,10 @@ export interface McpPort {
   retrieve(args: { question: string; dataset_ids: string[]; page: number; page_size: number }, signal: AbortSignal): Promise<unknown>
 }
 function textResult(result: unknown): string {
-  if (!result || typeof result !== 'object' || !('content' in result) || !Array.isArray(result.content)) throw new Error('RAGFlow MCP 未返回同步工具结果。')
-  if ('isError' in result && result.isError) throw new Error('RAGFlow MCP 操作失败，请检查连接和数据集权限。')
+  if (!result || typeof result !== 'object' || !('content' in result) || !Array.isArray(result.content)) throw new Error('知识源连接未返回同步工具结果。')
+  if ('isError' in result && result.isError) throw new Error('知识源操作失败，请检查连接和访问权限。')
   const texts = result.content.flatMap(item => item && typeof item === 'object' && 'type' in item && item.type === 'text' && 'text' in item && typeof item.text === 'string' ? [item.text] : [])
-  if (!texts.length) throw new Error('RAGFlow MCP 未返回文本结果。')
+  if (!texts.length) throw new Error('知识源连接未返回文本结果。')
   return texts.join('\n')
 }
 
@@ -25,9 +25,9 @@ function datasetLines(raw: string): Dataset[] {
     rows = raw.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line) as unknown)
   }
   return rows.map(row => {
-    if (!row || typeof row !== 'object') throw new Error('RAGFlow 返回了无效的数据集目录。')
+    if (!row || typeof row !== 'object') throw new Error('知识源返回了无效的目录。')
     const data = row as Record<string, unknown>
-    if (typeof data.id !== 'string' || !data.id) throw new Error('RAGFlow 数据集缺少可验证的 ID。')
+    if (typeof data.id !== 'string' || !data.id) throw new Error('知识源条目缺少可验证的标识。')
     return { id: data.id, name: typeof data.name === 'string' && data.name.trim() ? data.name : data.id, description: typeof data.description === 'string' ? data.description : '' }
   })
 }
@@ -46,10 +46,10 @@ export function createMcpPort(config: ResolvedConfig, credentials: { resolve(ref
       const result = await client.callTool({ name, arguments: args }, undefined, { signal: combined, timeout: config.requestTimeoutMs })
       return textResult(result)
     } catch (error) {
-      if (combined.aborted) throw new Error(timeout.aborted ? 'RAGFlow MCP 请求超时。' : 'RAGFlow MCP 请求已取消。')
+      if (combined.aborted) throw new Error(timeout.aborted ? '知识源请求超时。' : '知识源请求已取消。')
       // SDK/HTTP errors can include server detail or echoed headers; never log or return a secret.
-      if (error instanceof Error && error.message.startsWith('RAGFlow MCP ')) throw error
-      throw new Error('RAGFlow MCP 连接或工具调用失败，请检查 /mcp 地址、服务模式和凭据。')
+      if (error instanceof Error && error.message.startsWith('知识源')) throw error
+      throw new Error('知识源连接或工具调用失败，请检查连接地址、服务模式和凭据。')
     } finally { await client.close().catch(() => undefined) }
   }
   return {
@@ -58,15 +58,15 @@ export function createMcpPort(config: ResolvedConfig, credentials: { resolve(ref
       const seen = new Set<string>()
       for (let page = 1; page <= 100; page++) {
         const batch = datasetLines(await call('ragflow_list_datasets', { page, page_size: 100 }, signal))
-        if (batch.some(row => seen.has(row.id))) throw new Error('RAGFlow 数据集分页重复，无法确认完整目录。')
+        if (batch.some(row => seen.has(row.id))) throw new Error('知识源目录分页重复，无法确认完整目录。')
         for (const row of batch) { seen.add(row.id); rows.push(row) }
         if (batch.length < 100) return rows
       }
-      throw new Error('RAGFlow 数据集目录超过分页上限，已停止检索。')
+      throw new Error('知识源目录超过分页上限，已停止检索。')
     },
     async retrieve(args, signal) {
       const raw = await call('ragflow_retrieval', { ...args, document_ids: [] }, signal)
-      try { return JSON.parse(raw) as unknown } catch { throw new Error('RAGFlow 检索返回了无效 JSON。') }
+      try { return JSON.parse(raw) as unknown } catch { throw new Error('知识源检索返回了无效数据。') }
     },
   }
 }

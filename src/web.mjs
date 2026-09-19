@@ -5,16 +5,16 @@ import { mergeSources, readSources, SOURCE_MARKER } from './sources.js';
 export function installWeb(ctx, { port, config, command, deployment, selection }) {
   const lifetime = new AbortController();
   ctx.effect(() => () => lifetime.abort());
-  ctx.effect(() => ctx.commands.register({ name: command, description: '选择当前会话可检索的 RAGFlow 数据集', input: { hint: '数据集范围 JSON' },
+  ctx.effect(() => ctx.commands.register({ name: command, description: '选择当前会话可检索的知识源', input: { hint: '知识源范围 JSON' },
     async handler({ agent, rawInput }) {
       if (agent.status !== 'idle') return { kind: 'error', text: '请等待当前任务结束后再切换知识源。' };
       try {
         const value = JSON.parse(rawInput);
-        if (value.deployment !== await deployment()) throw new Error('RAGFlow 连接已变更，请刷新后重新选择。');
+        if (value.deployment !== await deployment()) throw new Error('知识源连接已变更，请刷新后重新选择。');
         const next = parseSelection(value);
         resolveSelection(next, await port.listDatasets(lifetime.signal), config);
         if (agent.status !== 'idle') throw new Error('会话已开始运行，请结束后再切换。');
-        return { kind: 'success', text: 'RAGFlow 数据集范围已更新。' };
+        return { kind: 'success', text: '知识源范围已更新。' };
       } catch (error) { return { kind: 'error', text: error.message }; }
     },
   }));
@@ -27,8 +27,8 @@ export function installWeb(ctx, { port, config, command, deployment, selection }
       if (method === 'select') {
         const next = parseSelection(payload.selection);
         const reply = await ctx.commands.execute(agent, `/${command} ${JSON.stringify({ ...next, deployment: await deployment() })}`, [], lifetime.signal);
-        if (reply?.result.kind !== 'success') throw new Error(reply?.result.text ?? 'RAGFlow 数据集选择失败。');
-      } else if (method !== 'state') throw new Error('未知 RAGFlow 操作。');
+        if (reply?.result.kind !== 'success') throw new Error(reply?.result.text ?? '知识源选择失败。');
+      } else if (method !== 'state') throw new Error('未知知识源操作。');
       const datasets = await port.listDatasets(lifetime.signal);
       const current = await selection(agent);
       let effective = [], scopeError = '';

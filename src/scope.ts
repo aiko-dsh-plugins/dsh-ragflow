@@ -6,12 +6,12 @@ export type Selection = { mode: 'default' | 'all' | 'selected'; ids: string[] }
 export const DEFAULT_SELECTION: Selection = { mode: 'default', ids: [] }
 
 export function parseSelection(value: unknown): Selection {
-  if (!value || typeof value !== 'object') throw new Error('请选择 RAGFlow 数据集范围。')
+  if (!value || typeof value !== 'object') throw new Error('请选择知识源范围。')
   const row = value as Record<string, unknown>
   if (!['default', 'all', 'selected'].includes(String(row.mode)) || !Array.isArray(row.ids)
-    || row.ids.some(id => typeof id !== 'string' || !id.trim() || id.length > 200)) throw new Error('RAGFlow 数据集选择无效。')
+    || row.ids.some(id => typeof id !== 'string' || !id.trim() || id.length > 200)) throw new Error('知识源选择无效。')
   const ids = [...new Set(row.ids as string[])]
-  if (row.mode === 'selected' && !ids.length) throw new Error('请至少选择一个 RAGFlow 数据集。')
+  if (row.mode === 'selected' && !ids.length) throw new Error('请至少选择一个知识源。')
   if (row.mode !== 'selected' && ids.length) throw new Error('默认或全部范围不能带数据集 ID。')
   return { mode: row.mode as Selection['mode'], ids }
 }
@@ -53,8 +53,8 @@ export function selectionForAgent(agent: ScopeAgent, registry: ScopeAgentRegistr
 /** Re-discovery on every operation detects revoked or renamed connections. */
 export function resolveSelection(selection: Selection, datasets: readonly Dataset[], config: ResolvedConfig): Dataset[] {
   const ids = selection.mode === 'selected' ? selection.ids : selection.mode === 'default' && config.datasetIds.length ? config.datasetIds : datasets.map(row => row.id)
-  if (ids.some(id => !datasets.some(row => row.id === id))) throw new Error('所选 RAGFlow 数据集已不可访问；请重新选择。')
+  if (ids.some(id => !datasets.some(row => row.id === id))) throw new Error('所选知识源已不可访问；请重新选择。')
   const resolved = datasets.filter(row => ids.includes(row.id))
-  if (!resolved.length) throw new Error('当前没有可检索的已授权 RAGFlow 数据集。')
+  if (!resolved.length) throw new Error('当前没有可检索的已授权知识源。')
   return resolved
 }

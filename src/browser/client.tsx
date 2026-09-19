@@ -53,15 +53,15 @@ function CitationLinks({ useChat, sessionId }: { useChat: UseChat; sessionId: st
   const item = preview?.reference
   return <><style>{css}</style>{preview && <div ref={panel} className="ragflow-preview" role="dialog" aria-label={item ? `引用 ${item.number}` : '引用暂不可用'} style={{ left: preview.left, top: preview.top }}>
     <header><strong>{item ? `[${item.number}] ${item.file.name}` : '引用暂不可用'}</strong><button ref={closeButton} type="button" aria-label="关闭引用预览" onClick={() => { preview.anchor.focus({ preventScroll: true }); setPreview(undefined) }}>×</button></header>
-    {item ? <><div className="ragflow-meta">提供方：RAGFlow · 数据集：{item.dataset.name} · 文件：{item.file.name} · {item.chunk.index >= 0 ? `分块 ${item.chunk.index + 1}` : '命中分块'}</div><blockquote>{item.chunk.content}</blockquote>{item.file.url && <a href={item.file.url} target="_blank" rel="noopener noreferrer">打开原文件 ↗</a>}<details><summary>查看来源标识</summary><p>数据集 ID：{item.dataset.id}</p><p>文件 ID：{item.file.id}</p><p>分块 ID：{item.chunk.id}</p></details></> : <p>当前会话尚未加载此引用的来源，不能确认其对应文件。请等待回答完成或刷新后重试。</p>}
+    {item ? <><div className="ragflow-meta">知识源：{item.dataset.name} · 文件：{item.file.name} · {item.chunk.index >= 0 ? `分块 ${item.chunk.index + 1}` : '命中分块'}</div><blockquote>{item.chunk.content}</blockquote>{item.file.url && <a href={item.file.url} target="_blank" rel="noopener noreferrer">打开原文件 ↗</a>}</> : <p>当前会话尚未加载此引用的来源，不能确认其对应文件。请等待回答完成或刷新后重试。</p>}
   </div>}</>
 }
 
 function Listener({ sessionId, useChat }: PropsRuntime<'conversation.input.left'>) { return <CitationLinks sessionId={sessionId} useChat={useChat} /> }
 function Sources({ matched }: { matched: { sources: DatasetSource[] } }) {
   const items = references(matched.sources)
-  return <section className="ragflow-sources" aria-label="RAGFlow 参考来源"><style>{css}</style><strong>RAGFlow 参考来源</strong><div className="ragflow-reference-list">{items.map(item => <a key={item.url} href={item.url} aria-label={`查看引用 ${item.number}：${item.file.name}`}>[{item.number}] {item.file.name}</a>)}</div>
-    <details><summary>查看数据集、文件和命中分块</summary>{matched.sources.map(dataset => <div className="ragflow-source" key={dataset.id}><strong>RAGFlow · {dataset.name}</strong>{dataset.files.map(file => <details key={file.id}><summary>文件：{file.name} · {file.chunks.length} 个分块</summary>{file.chunks.map(chunk => <details key={chunk.id}><summary>{chunk.citation ? `[${chunk.citation.number}] ` : ''}{chunk.index >= 0 ? `分块 ${chunk.index + 1}` : '命中分块'}</summary><blockquote>{chunk.content}</blockquote></details>)}<details className="ragflow-ids"><summary>来源标识</summary><p>数据集 ID：{dataset.id} · 文件 ID：{file.id}</p></details></details>)}</div>)}</details>
+  return <section className="ragflow-sources" aria-label="参考来源"><style>{css}</style><strong>参考来源</strong><div className="ragflow-reference-list">{items.map(item => <a key={item.url} href={item.url} aria-label={`查看引用 ${item.number}：${item.file.name}`}>[{item.number}] {item.file.name}</a>)}</div>
+    <details><summary>查看知识源、文件和命中分块</summary>{matched.sources.map(dataset => <div className="ragflow-source" key={dataset.id}><strong>{dataset.name}</strong>{dataset.files.map(file => <details key={file.id}><summary>文件：{file.name} · {file.chunks.length} 个分块</summary>{file.chunks.map(chunk => <details key={chunk.id}><summary>{chunk.citation ? `[${chunk.citation.number}] ` : ''}{chunk.index >= 0 ? `分块 ${chunk.index + 1}` : '命中分块'}</summary><blockquote>{chunk.content}</blockquote></details>)}</details>)}</div>)}</details>
   </section>
 }
 export const inject = ['slots', 'uiConversation']
