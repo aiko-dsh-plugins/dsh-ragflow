@@ -1,0 +1,7 @@
+- insert:
+    - id: ragflow
+      name: "@aiko-dsh-plugins/dsh-ragflow"
+      config:
+        mcpUrl: !!js process.env.RAGFLOW_MCP_URL ?? 'http://127.0.0.1:9382/mcp'
+        credentialRef: RAGFLOW_API_KEY
+        datasetIds: []
