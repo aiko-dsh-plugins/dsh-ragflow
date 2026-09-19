@@ -1,9 +1,47 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { createCitationNumbering as ragflowNumbering } from '../dist/citations.js'
-import { createCitationNumbering as weknoraNumbering } from '../../dsh-weknora/dist/citations.js'
 import { SOURCE_MARKER as RAG_MARKER } from '../dist/sources.js'
-import { SOURCE_MARKER as WEK_MARKER } from '../../dsh-weknora/dist/sources.js'
+
+const siblingCitations = new URL('../../dsh-weknora/dist/citations.js', import.meta.url)
+const siblingSources = new URL('../../dsh-weknora/dist/sources.js', import.meta.url)
+const siblingAvailable = process.env.RAGFLOW_TEST_STANDALONE !== '1'
+  && existsSync(fileURLToPath(siblingCitations))
+  && existsSync(fileURLToPath(siblingSources))
+const WEK_MARKER = siblingAvailable
+  ? (await import(siblingSources.href)).SOURCE_MARKER
+  : 'WeKnora knowledge sources v2\n'
+
+// CI checks out this repository alone. This fixture implements the public
+// shared-numbering contract; a local checkout beside dsh-weknora exercises
+// the real provider implementation instead.
+const contractWeKnoraNumbering = ownerFor => {
+  const sharedKey = Symbol.for('aiko-dsh.knowledge-citation-numbering')
+  const agents = globalThis[sharedKey] ??= new WeakMap()
+  return (sources, exec) => {
+    const agent = ownerFor(exec)
+    const events = agent?.session.snapshotEvents() ?? []
+    const start = events.findLastIndex(row => row.type === 'turn/start')
+    const turn = events[start]?.data.turn
+    let state = agent ? agents.get(agent) : undefined
+    if (!state || state.turn !== turn) {
+      state = { turn, next: 1, entries: new Map() }
+      if (agent) agents.set(agent, state)
+    }
+    for (const base of sources) for (const document of base.documents ?? []) for (const chunk of document.chunks ?? []) {
+      const key = JSON.stringify(['weknora', base.id, document.id, chunk.id])
+      let citation = state.entries.get(key)
+      if (!citation) citation = { number: state.next++, url: '#weknora-cite=' + crypto.randomUUID() }
+      state.entries.set(key, citation)
+      chunk.citation = citation
+    }
+  }
+}
+const weknoraNumbering = siblingAvailable
+  ? (await import(siblingCitations.href)).createCitationNumbering
+  : contractWeKnoraNumbering
 
 const signal = new AbortController().signal
 const agent = events => ({ id: crypto.randomUUID(), session: { snapshotEvents: () => events } })
