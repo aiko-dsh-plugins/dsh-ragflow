@@ -1,5 +1,9 @@
 # Aiko DSH RAGFlow 知识源插件
 
+本仓库保留声明支持 DSH `0.1.6-alpha.2` 的独立 RAGFlow 适配包。当前 Aiko/云遥 DSH 0.2 产品在[工作台 `modules/knowledge`](https://github.com/aiko-dsh-plugins/aiko-dsh-workbench/tree/codex/desktop-account-launcher/modules/knowledge)统一维护 WeKnora 与 RAGFlow 的选择、授权、检索和引用；两种产品使用同一业务模块，不从此旧包自动升级。完整源码与发布分工见[仓库定位说明](https://github.com/aiko-dsh-plugins/aiko-dsh-workbench/blob/main/docs/repository-map.md)。
+
+本独立包的 `src/` 存放 Host、浏览器和 MCP 适配代码，`test/` 为行为测试，`scripts/` 为构建工具，`dist/` 为生成产物。配置和安装说明仅适用于通过本包清单验证过的旧 Host；新 Profile 请使用工作台仓库的知识库包及其配置说明。发布前运行下文检查并验证实际服务权限与引用，不以模拟 MCP 测试代替真实部署验收。
+
 此插件通过 RAGFlow 官方 MCP Streamable HTTP `/mcp` 接入数据集发现与原生检索。模型只看到 `ragflow_search` 适配工具，**看不到** RAGFlow 原生 MCP 工具；适配器每次都从会话的用户选择计算非空 `dataset_ids` 并显式传给 `ragflow_retrieval`。RAGFlow 省略或传空 `dataset_ids` 时会搜索全部可访问数据集，因此这里拒绝空范围和无法核实来源的响应。
 
 ## 工作台体验
