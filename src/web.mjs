@@ -12,6 +12,7 @@ export function installWeb(ctx, { port, config, command, deployment, selection }
         const value = JSON.parse(rawInput);
         if (value.deployment !== await deployment()) throw new Error('知识源连接已变更，请刷新后重新选择。');
         const next = parseSelection(value);
+        if (next.mode === 'none') return { kind: 'success', text: '本会话不使用知识源。' };
         resolveSelection(next, await port.listDatasets(lifetime.signal), config);
         if (agent.status !== 'idle') throw new Error('会话已开始运行，请结束后再切换。');
         return { kind: 'success', text: '知识源范围已更新。' };

@@ -63,7 +63,7 @@ test('session commands restore only successful selections for the active connect
   const done = (id, kind) => ({ type: 'command/done', data: { commandId: id, kind } })
   const events = [run('1', 'current', ['a']), done('1', 'success'), run('2', 'other', ['b']), done('2', 'success'), run('3', 'current', ['b']), done('3', 'error')]
   assert.deepEqual(selectionFromEvents(events, 'ragflow-scope', 'current'), { mode: 'selected', ids: ['a'] })
-  assert.deepEqual(selectionFromEvents(events, 'ragflow-scope', 'rotated'), { mode: 'default', ids: [] })
+  assert.deepEqual(selectionFromEvents(events, 'ragflow-scope', 'rotated'), { mode: 'none', ids: [] })
 })
 
 test('delegated agents use the root conversation selection', () => {

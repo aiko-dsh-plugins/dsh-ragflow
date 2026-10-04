@@ -12,6 +12,8 @@
 
 WeKnora 仍调用其 REST/问答能力；RAGFlow 调用官方 `ragflow_list_datasets` 和 `ragflow_retrieval`。两者在同一轮共享引用编号。用户界面只显示知识源名称、文件、命中分块和本次返回的原文，不显示适配器平台或技术 ID。系统提示词要求所有可用知识源检索适配器覆盖同一查询，同时保留用户选择的其他专家。RAGFlow MCP 检索响应没有可核实的原文件 Web 路由，此版本不提供猜测的文件链接。引用指向 DSH 内的 `#ragflow-cite=` 预览；来源元数据随成功工具结果进入原生会话，刷新后由会话事件重建。
 
+检索结果的 `selected_sources` 始终列出本通道已选且通过权限检查的知识源名称，包括本次没有命中的库；`sources` 仍只表示实际返回的引用证据。输出明确区分选择数量与命中数量，不能用一个通道的列表推断整个会话只选了几个库，也不能用一次零命中推断库为空。选择元数据不生成引用，旧的已记录回答不会被改写。
+
 ## 配置
 
 将插件装入目标 profile，并在该 profile 的 `cordis.patch.yml` 配置连接：
@@ -28,7 +30,7 @@ WeKnora 仍调用其 REST/问答能力；RAGFlow 调用官方 `ragflow_list_data
 
 `mcpUrl` 必须是无凭据、无查询参数的 HTTP(S) `/mcp` 地址。`credentialRef` 是 DSH 凭据引用名称，默认 `RAGFLOW_API_KEY`。通过 DSH 已有的凭据服务或设置界面保存该引用的值，切勿把密钥写入 patch；插件每次 MCP 操作重新解析凭据并作为 Bearer 头发送。自托管 MCP 模式在 MCP 服务端配置 RAGFlow API key，客户端引用可留空；若网关需要 Bearer 认证则设置该引用。RAGFlow 官方启动文档仍注明 host mode 不支持 Streamable HTTP，接入前应确认所运行版本与模式确实提供 `/mcp`。
 
-`datasetIds` 是默认范围。空数组表示从 `ragflow_list_datasets` 当前返回的全部已授权数据集中显式组装 ID，绝不向检索发送空数组。显式选择在当前会话中覆盖默认值。API key 轮换会改变连接指纹，旧会话选择不会误用到新身份。
+新会话默认为不使用知识源（`none`），不会自动勾选数据集。`datasetIds` 仅在用户显式选择“使用配置范围”时生效；其空数组表示当前全部已授权数据集。用户可单独选择任一提供方，也可取消全部勾选并应用以停用。`none` 在调用 MCP 前拒绝检索，绝不向检索发送空数组。历史成功选择继续恢复；API key 轮换后恢复为未选择。联合选择器需要配套支持 `none` 的 WeKnora 构建（0.1.3-aiko.1.dsh016.8）。
 
 RAGFlow 的 `ragflow_list_datasets` 需要返回每个数据集的 `id`；若旧版本漏掉 `name`，界面用 ID 作标签。检索分块必须携带 `dataset_id`（或 `kb_id`）、`document_id`、分块 `id` 和原文。缺失这些分块字段，或返回了所选范围之外的分块，整个工具调用失败，不向模型返回那批内容。检索页大小由 `maxResults` 控制，模型不能传 `dataset_ids` 或 `document_ids`。
 

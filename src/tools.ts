@@ -12,7 +12,7 @@ const publicLabel = (value: string): string => value.replace(/ragflow|weknora/gi
 const resultIdentity = new WeakMap<object, string>()
 const identity = (dataset: string, file: string, chunk: string) => JSON.stringify([dataset, file, chunk])
 
-export function normalizeRetrieved(raw: unknown, selected: readonly Dataset[], limit: number): { results: { dataset: string; file: string; content: string; score?: number; citation?: { number: number; url: string } }[]; sources: DatasetSource[]; total: number } {
+export function normalizeRetrieved(raw: unknown, selected: readonly Dataset[], limit: number): { selected_sources: { name: string }[]; results: { dataset: string; file: string; content: string; score?: number; citation?: { number: number; url: string } }[]; sources: DatasetSource[]; total: number } {
   if (!record(raw) || !Array.isArray(raw.chunks)) throw new Error('知识源检索响应缺少内容分块。')
   const datasets = new Map(selected.map(item => [item.id, item]))
   const sources = new Map<string, DatasetSource>()
@@ -44,7 +44,7 @@ export function normalizeRetrieved(raw: unknown, selected: readonly Dataset[], l
   }
   const pagination = record(raw.pagination) ? raw.pagination : {}
   const total = Number.isSafeInteger(pagination.total_chunks) && Number(pagination.total_chunks) >= results.length ? Number(pagination.total_chunks) : results.length
-  return { results, sources: [...sources.values()], total }
+  return { selected_sources: selected.map(dataset => ({ name: publicLabel(dataset.name) })), results, sources: [...sources.values()], total }
 }
 
 export function createScopedTool(port: McpPort, config: ResolvedConfig,
@@ -52,13 +52,15 @@ export function createScopedTool(port: McpPort, config: ResolvedConfig,
   const numberCitations = createCitationNumbering(ownerFor)
   return {
     name: `${config.toolPrefix}_search`,
-    description: 'Knowledge source retrieval adapter. Search only the knowledge sources selected by the user for this conversation. The adapter fixes the retrieval scope; you cannot choose or expand it. Cite supported claims with the exact [number](url) in a returned result. Reuse citations for repeated evidence. Never invent a source, reveal the provider platform, or expose technical IDs unless asked for diagnostics.',
+    description: 'Knowledge source retrieval adapter. Search only the knowledge sources selected by the user for this conversation. The adapter fixes the retrieval scope; you cannot choose or expand it. Every result reports selected_sources even when no passages match; this selection list covers this adapter only, not the whole conversation. Cite supported claims with the exact [number](url) in a returned result. Reuse citations for repeated evidence. Never invent a source, reveal the provider platform, or expose technical IDs unless asked for diagnostics.',
     parameters: { type: 'object', properties: { question: { type: 'string', description: 'Search question' }, page: { type: 'integer', minimum: 1, maximum: 50, description: 'Page number, default 1' } }, required: ['question'], additionalProperties: false },
-    output: { schema: { type: 'object', properties: { results: { type: 'array', items: { type: 'object' } }, sources: { type: 'array', items: { type: 'object' } }, total: { type: 'integer' } }, required: ['results', 'sources', 'total'] },
+    output: { schema: { type: 'object', properties: { selected_sources: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } }, results: { type: 'array', items: { type: 'object' } }, sources: { type: 'array', items: { type: 'object' } }, total: { type: 'integer' } }, required: ['selected_sources', 'results', 'sources', 'total'] },
       render(_args, value) {
         const response = value as ReturnType<typeof normalizeRetrieved>
         const lines = response.results.map(result => `${result.citation ? `[${result.citation.number}](${result.citation.url}) ` : ''}${result.dataset} / ${result.file}\n${result.content}`)
-        return [{ type: 'text', text: lines.length ? lines.join('\n\n') : '所选知识源中没有匹配内容。' }, { type: 'text', text: SOURCE_MARKER + JSON.stringify(response.sources) }]
+        const scope = `本检索通道已选择 ${response.selected_sources.length} 个知识源：${JSON.stringify(response.selected_sources.map(source => source.name))}。这不是会话的完整知识源列表；统计总数时还须合并其他通道的已选列表。`
+        const evidence = lines.length ? lines.join('\n\n') : '本次查询在这些已选知识源中没有匹配内容；不代表未选择，也不能据此断定知识库为空或没有业务资料。'
+        return [{ type: 'text', text: `${scope}\n\n${evidence}` }, { type: 'text', text: SOURCE_MARKER + JSON.stringify(response.sources) }]
       },
     },
     timeoutMs: config.requestTimeoutMs,
@@ -67,8 +69,10 @@ export function createScopedTool(port: McpPort, config: ResolvedConfig,
       if (!record(args) || typeof args.question !== 'string' || !args.question.trim() || args.question.length > 10_000) throw new Error('知识源检索问题无效。')
       const page = args.page ?? 1
       if (!Number.isSafeInteger(page) || Number(page) < 1 || Number(page) > 50) throw new Error('知识源检索页码无效。')
+      const selection = await selectionFor(exec)
+      if (selection.mode === 'none') throw new Error('本会话未选择知识源，请先由用户选择后再检索。')
       const datasets = await port.listDatasets(exec.signal)
-      const selected = resolveSelection(await selectionFor(exec), datasets, config)
+      const selected = resolveSelection(selection, datasets, config)
       // This is the only invocation of the native retrieval tool. Supplied dataset_ids
       // and document_ids are ignored; an empty array is never sent.
       const raw = await port.retrieve({ question: args.question.trim(), dataset_ids: selected.map(item => item.id), page: Number(page), page_size: config.maxResults }, exec.signal)

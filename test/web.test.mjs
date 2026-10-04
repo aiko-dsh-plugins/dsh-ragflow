@@ -35,10 +35,19 @@ test('RAGFlow RPC saves per-session scope in successful native commands', async 
   const selected = await f.call('select', { sessionId: 'one', selection: { mode: 'selected', ids: ['b'] } })
   assert.equal(selected.ok, true)
   assert.deepEqual(selected.value.effective.map(row => row.id), ['b'])
-  assert.deepEqual((await f.call('state', { sessionId: 'two' })).value.effective.map(row => row.id), ['a'])
+  assert.deepEqual((await f.call('state', { sessionId: 'two' })).value.effective.map(row => row.id), [])
   assert.doesNotMatch(JSON.stringify(selected), /credential|token|secret|deployment/)
   f.rotate()
-  assert.deepEqual((await f.call('state', { sessionId: 'one' })).value.selection, { mode: 'default', ids: [] })
+  assert.deepEqual((await f.call('state', { sessionId: 'one' })).value.selection, { mode: 'none', ids: [] })
+})
+
+test('clearing the scope persists none without enabling another provider', async () => {
+  const f = fixture()
+  await f.call('select', { sessionId: 'one', selection: { mode: 'selected', ids: ['a'] } })
+  const cleared = await f.call('select', { sessionId: 'one', selection: { mode: 'none', ids: [] } })
+  assert.equal(cleared.ok, true)
+  assert.deepEqual(cleared.value.effective, [])
+  assert.deepEqual((await f.call('state', { sessionId: 'one' })).value.selection, { mode: 'none', ids: [] })
 })
 
 test('busy or unavailable selections do not change the previous scope', async () => {

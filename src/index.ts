@@ -9,7 +9,7 @@ import type { HarnessContext, ScopeAgent } from './harness.ts'
 import { installWeb } from './web.mjs'
 
 export const name = 'dsh-ragflow'
-export const inject = ['tools', 'credentials'] as const
+export const inject = ['tools', 'credentials', 'systemPrompt'] as const
 export { resolveConfig } from './config.ts'
 export { createMcpPort } from './mcp.ts'
 export { createScopedTool, normalizeRetrieved } from './tools.ts'
@@ -25,6 +25,13 @@ export function apply(ctx: HarnessContext, config: unknown): void {
   let selection = async (agent: ScopeAgent) => selectionFromEvents(agent.session.snapshotEvents(), command, await deployment())
   let owner = (agent: ScopeAgent) => agent
   ctx.tools.register(createScopedTool(port, resolved, async exec => selection(exec.agent!), exec => exec.agent ? owner(exec.agent) : undefined))
+  ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+    const assembly = await next()
+    const enabled = context.scope && (await selection(context.scope)).mode !== 'none'
+    assembly.sections.push({ name: `${resolved.toolPrefix}:selected-scope`, order: 3051,
+      text: `${resolved.toolPrefix} knowledge-source adapter scope: ${enabled ? 'enabled' : 'disabled (no knowledge sources selected; do not call its tools)'}.` })
+    return assembly
+  })
   ctx.inject(['commands', 'agents', 'connection'], bridge => {
     const inherited = async (agent: ScopeAgent) => selectionForAgent(agent, bridge.agents, command, await deployment())
     bridge.effect(() => { selection = inherited; owner = agent => rootAgent(agent, bridge.agents); return () => { selection = async agent => selectionFromEvents(agent.session.snapshotEvents(), command, await deployment()); owner = agent => agent } })
